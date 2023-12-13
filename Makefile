@@ -1,4 +1,9 @@
-all:DAQ eros_d2r Linearity Noise SNR CrossT TRes TCal
+DIRS=anadata rawdata
+
+all: $(DIRS) DAQ eros_d2r Linearity Noise SNR CrossT TRes TCal
+
+$(DIRS):
+	mkdir $@
 
 setup.o: setup.cxx
 		g++  -g -O2 -Wall -pthread -m64 $(shell root-config --cflags --glibs)  -c -o setup.o setup.cxx
