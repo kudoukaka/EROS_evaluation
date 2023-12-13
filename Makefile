@@ -1,4 +1,4 @@
-DIRS=anadata rawdata
+DIRS=anadata rawdata result
 
 all: $(DIRS) DAQ eros_d2r Linearity Noise SNR CrossT TRes TCal
 

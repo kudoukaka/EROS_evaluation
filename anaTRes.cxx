@@ -22,7 +22,7 @@ float period=62.5;
 float thr=0;//threshold for intersection
 float t[2][12]={0};
 float dt[2][1024]={0};
-float wf[16][1024]={0};
+float wf[18][1024]={0};
 float wftime[2][1024]={0};
 TH1F *hist[2][11];
 char hist_name[2][11];

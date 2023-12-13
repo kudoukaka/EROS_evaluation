@@ -75,11 +75,11 @@ int main(int argc, char* argv[])
 		}
 
 		auto fout=new TFile(("anadata/"+rootname).c_str(),"RECREATE");
-		auto tree = new TTree("datatree", "waveforms");
+		auto datatree = new TTree("datatree", "waveforms");
 		int sc[2]={0};
-		double wf[18][1024]={0};
-		tree->Branch("wf",wf,"wf[18][1024]/D");
-		tree->Branch("stopcapacitor",sc,"stopcapacitor[2]/I");
+		float wf[18][1024]={0};
+		datatree->Branch("wf",wf,"wf[18][1024]/F");
+		datatree->Branch("cidx",sc,"cidx[2]/I");
 
     //read baseline file
 		std::string baselinefilepath_string = ("/home/david/Documents/COMET/ECAL/EROS_DAQ/DAQ/baselinefile/" + baseline_fname);
@@ -232,7 +232,7 @@ int main(int argc, char* argv[])
                 break;
             }
         }
-				tree->Fill();
+				datatree->Fill();
 
         //read SEM message
         if(sem_message_size != 0){
@@ -251,7 +251,7 @@ int main(int argc, char* argv[])
 
     fclose(fp);
 
-		tree->Write("", TObject::kOverwrite);
+		datatree->Write("", TObject::kOverwrite);
 		fout->Close();
 
     return 0;

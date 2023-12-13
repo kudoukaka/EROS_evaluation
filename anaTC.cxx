@@ -24,7 +24,7 @@ Float_t period=62.5;//16MHz sine wave
 Float_t pre_dt=0.938;//nanosecond
 Int_t events=0;
 Int_t stopcapacitor[2]={0};
-Float_t wf[16][1024]={0};
+Float_t wf[18][1024]={0};
 Float_t dt[2][1024]={0};
 Float_t dt_fall[2][1024]={0};//Local TC falling edge
 Float_t dt_rise[2][1024]={0};//Local TC rising edge
@@ -44,6 +44,10 @@ float ttpl[1024]={0};
 int pcnt[1024]={0};
 //auto gwf=new TGraph();
 
+const static option options[] = {
+	{"datafile",        required_argument, NULL, 'f'},
+  {0,0,0,0}
+};
 
 //================================================================
 //fitting func for Local TC
@@ -242,21 +246,24 @@ Int_t main(Int_t argc, Char_t* argv[]){
 
 	auto start_time = std::chrono::high_resolution_clock::now();
 
-	//check argument
-	if(argc==1){
-		std::cout << "usage: ./TCal [data filename]" << std::endl;
-		return -1;
+	int ii, index;
+	//file name input
+	std::string fname;
+	while( (ii = getopt_long(argc, argv, "f:t:", options, &index)) !=-1 ){
+		switch(ii){
+			case 'f':
+				fname = optarg;
+				break;
+		}
 	}
 
 	//read data file
-	std::string datafile = argv[1];
-
 	std::cout<<"Reading data file..."<<std::endl;
 
-	auto fdata = TFile::Open(("anadata/"+datafile).c_str(),"READ");
+	auto fdata = TFile::Open(("anadata/"+fname).c_str(),"READ");
 
 	if(!fdata || fdata->IsZombie()){
-		std::cerr<<"Failed to open root file '"<<datafile<<"'"<<std::endl;
+		std::cerr<<"Failed to open root file '"<<fname<<"'"<<std::endl;
 		delete fdata;
 		return -1;
 	} 

@@ -2,3 +2,4 @@ rawdata/*
 anadata/*
 result/*
 result.txt
+*.o
