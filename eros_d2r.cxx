@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <iostream>
-#include <sstream>
-#include <fstream>
 #include <getopt.h>
 #include <string.h>
 #include <arpa/inet.h>
@@ -14,6 +12,8 @@
 #include "TH2F.h"
 #include "TF1.h"
 #include "TMath.h"
+#include "TFile.h"
+#include "TTree.h"
 #include "TStyle.h"
 #include <string>
 
@@ -31,24 +31,17 @@ int SAMLE_NUM = 1024;
 int board_num_MAX = 10;
 int StopCapacitor_NUM = 32;
 int BoardNum = 1;
-int events = 1;
 
 std::string FileDir = "rawdata/";
-double fitser(double *x, double *par);
-double intersection(int start, int end);
-auto fth=new TF1("fth","[0]",0,1024);
-auto graph=new TGraph();
 
 const static option options[] = {
     {"FileName",        required_argument, NULL, 'f'},
     {"baseline_fname",  required_argument, NULL, 'b'},
-    {"Ref_ch",  required_argument, NULL, 'r'},
     {0,0,0,0}
 };
 
 int main(int argc, char* argv[])
 {
-		std::cout<<"Now performing Global TC..."<<std::endl;
 
 //    gStyle->SetOptStat(0);
 
@@ -59,8 +52,7 @@ int main(int argc, char* argv[])
     //file name input
     std::string fname;
     std::string baseline_fname;
-		int ref_ch;
-    while( (ii = getopt_long(argc, argv, "f:b:r:", options, &index)) !=-1 ){
+    while( (ii = getopt_long(argc, argv, "f:b:", options, &index)) !=-1 ){
         switch(ii){
             case 'f':
                 fname = optarg;
@@ -68,49 +60,26 @@ int main(int argc, char* argv[])
             case 'b':
                 baseline_fname = optarg;
                 break;
-            case 'r':
-                ref_ch = std::stoi(optarg);
-                break;
             default :
                 break;
         }
     }
 
-		//read time information
-		std::ifstream time_input("TC.dat");
-		int row=0;
-		int count[1024];
-		double dummy;
-		double dt[1024];
-		double dt_cortmp[1024];
-		double dt_cor[1024];
-		double wftime[1024];
-		int capa[8][1024]={0};
-		int checked_capa[8][1024]={0};
-
-		if(time_input.is_open()){
-			std::string time_data;
-			time_input.clear();
-			time_input.seekg(0,std::ios::beg);
-			while(getline(time_input,time_data)){
-				std::istringstream iss(time_data);
-				iss >> dummy >> dt[row];
-				row++;
-			}
-			wftime[0]=dt[0];
-			for(int k=1;k<1024;k++){
-				wftime[k]=wftime[k-1]+dt[k];
-			}
+		//OutputRootFile
+		std::string rootname = fname;
+		size_t pos = rootname.find(".dat");
+		if (pos != std::string::npos) {
+			rootname.replace(pos, 4, ".root");
+		} else{
+			rootname = "anadata/result.root";
 		}
 
-		if(!time_input.is_open()){
-			std::cout<<"No TC data is found, now creating"<<std::endl;
-			for(int i=0;i<1024;i++){
-				dt[i]=0.938;
-				wftime[i]=(i+1)*0.938;
-			}
-		}
-
+		auto fout=new TFile(("anadata/"+rootname).c_str(),"RECREATE");
+		auto tree = new TTree("datatree", "waveforms");
+		int sc[2]={0};
+		double wf[18][1024]={0};
+		tree->Branch("wf",wf,"wf[18][1024]/D");
+		tree->Branch("stopcapacitor",sc,"stopcapacitor[2]/I");
 
     //read baseline file
 		std::string baselinefilepath_string = ("/home/david/Documents/COMET/ECAL/EROS_DAQ/DAQ/baselinefile/" + baseline_fname);
@@ -172,11 +141,25 @@ int main(int argc, char* argv[])
     unsigned int EventNumber[2];
     EventNumber[0] = 0;
     EventNumber[1] = 1;
+		int events=0;
 
-    TApplication* appd = new TApplication("app",&argc,argv);
+
+
+    TApplication* app = new TApplication("app",&argc,argv);
+    char hist_name[18];
+    TH1F *hist[CHNUM];
+    for(int j = 0; j < CHNUM; j++){
+        sprintf(hist_name, "%d",  j);
+        hist[j] = new TH1F(hist_name, hist_name, 400, -50, 50);
+    }
+
+
 
     //Read Start
     for(;;){
+				if((events+1)%1000==0)std::cout<<"Processing events: "<<events+1<<std::endl;
+				events++;
+				
         //Header read
         readnum = fread(header, 1, HEADERSIZE, fp);
         if(readnum != (unsigned int)HEADERSIZE){
@@ -228,13 +211,16 @@ int main(int argc, char* argv[])
                     break;
                 }
 
+								if(ch==0)sc[0]=StopNumber;
+								if(ch==8)sc[1]=StopNumber;
                 for(int sample = 0; sample < 1024; sample++){
                     int capacitor_number = (sample + StopNumber) % 1024;
                     unsigned short *data_f = (unsigned short *)&readdata[sample*2];
                     unsigned short data = *data_f;
                     get_data[ch][sample] = (int)(0x0fff & data);
-                    get_data2[ch][sample] = (float)get_data[ch][sample] - pedestal[StopNumber32][0][ch][capacitor_number];
+                    get_data2[ch][sample] = (float)get_data[ch][sample] - pedestal[StopNumber32][0][ch][capacitor_number]; 
                     get_data_final[ch][sample] = get_data2[ch][sample] / 4096. * 1000; //ADC:12bit 2mVpp
+										wf[ch][sample]=get_data_final[ch][sample];
                 }
             }
 
@@ -246,148 +232,27 @@ int main(int argc, char* argv[])
                 break;
             }
         }
-
-				for(int ch=ref_ch;ch<ref_ch+2;ch++){
-					int nA=0;
-					int nB=0;
-					int nC=0;
-					int checkpointA[20]={0};
-					int checkpointB[20]={0};
-					int checkpointC[20]={0};
-					double intersecA[20]={0};
-					double intersecB[20]={0};
-					double intersecC[20]={0};
-					for(int sample=0;sample<1024;sample++){
-						graph->SetPoint(sample,wftime[sample],get_data_final[ch][sample]);
-					}
-					for(int sample=1;sample<1023;sample++){
-						if(get_data_final[ch][sample]>=0. && get_data_final[ch][sample-1]<0. && get_data_final[ch][sample+1]>0.){
-							fth->FixParameter(0,0);
-							intersecA[nA]=intersection(wftime[sample-1],wftime[sample+1]);
-							checkpointA[nA]=sample;
-							nA++;
-							checked_capa[ch][sample]++;
-						}
-						if(get_data_final[ch][sample]<=0. && get_data_final[ch][sample-1]>0. && get_data_final[ch][sample+1]<0.){
-							fth->FixParameter(0,0);
-							intersecB[nB]=intersection(wftime[sample-1],wftime[sample+1]);
-							checkpointB[nB]=sample;
-							nB++;
-							checked_capa[ch][sample]++;
-						}
-						if(get_data_final[ch][sample]>=50. && get_data_final[ch][sample-1]<50. && get_data_final[ch][sample+1]>50.){
-							fth->FixParameter(0,-20);
-							intersecC[nC]=intersection(wftime[sample-1],wftime[sample+1]);
-							checkpointC[nC]=sample;
-							nC++;
-							checked_capa[ch][sample]++;
-						}
-					}
-	
-					for(int point=0;point<nA-1;){
-						float pA=intersecA[point+1]-intersecA[point];
-						if(pA>55 && pA<70 && capa[ch][checkpointA[point]]<10){
-							dt_cortmp[checkpointA[point]]=62.5/pA;
-							for(int cor=checkpointA[point];cor<checkpointA[point+1]-1;cor++){
-								dt_cor[cor]+=dt_cortmp[checkpointA[point]]*dt[cor];
-								count[cor]++;
-							}
-							capa[ch][checkpointA[point]]++;
-							point++;
-						}
-						else point+=2;
-					}
-	
-					for(int point=0;point<nB-1;){
-						float pB=intersecB[point+1]-intersecB[point];
-						if(pB>55 && pB<70 && capa[ch][checkpointB[point]]<10){
-							dt_cortmp[checkpointB[point]]=62.5/pB;
-							for(int cor=checkpointB[point];cor<checkpointB[point+1]-1;cor++){
-								dt_cor[cor]+=dt_cortmp[checkpointB[point]]*dt[cor];
-								count[cor]++;
-							}
-							capa[ch][checkpointB[point]]++;
-							point++;
-						}
-						else point+=2;
-					}
-	
-					for(int point=0;point<nC-1;){
-						float pC=intersecC[point+1]-intersecC[point];
-						if(pC>55 && pC<70 && capa[ch][checkpointC[point]]<10){
-							dt_cortmp[checkpointC[point]]=62.5/pC;
-							for(int cor=checkpointC[point];cor<checkpointC[point+1]-1;cor++){
-								dt_cor[cor]+=dt_cortmp[checkpointC[point]]*dt[cor];
-								count[cor]++;
-							}
-							capa[ch][checkpointC[point]]++;
-							point++;
-						}
-						else point+=2;
-					}
-				}
-
-				if(events%1000==0)std::cout<<"Processing events: "<<events<<std::endl;
-				events++;
-
+				tree->Fill();
 
         //read SEM message
         if(sem_message_size != 0){
             readnum = fread(SEM_Message, 1, sem_message_size, fp);
             if(readnum != (unsigned int)sem_message_size){
-               break;
+                break;
             }
         }
-    
 
         //Footer footer
         readnum = fread(footer, 1, FOOTERSIZE, fp);
         if(readnum != (unsigned int)FOOTERSIZE){
             break;
         }
-
-
-
     }
 
     fclose(fp);
 
-    FILE *w_fp;
-    w_fp = fopen("TC.dat", "w");
-    if(w_fp == NULL){
-        printf("TC.dat write err\n");
-        return -1;
-    }
-
-		int sum[1024]={0};
-		auto c=new TCanvas();
-		auto gtest=new TGraph();
-    for(int ch=ref_ch;ch<ref_ch+8;ch++){
-      for(int sample=0;sample<1024;sample++){
-        sum[sample]+=checked_capa[ch][sample];
-      }
-    }
-
-		for(int sample=0;sample<1024;sample++){
-			gtest->SetPoint(sample,sample,sum[sample]);
-			if(count[sample]==0)count[sample]=1;
-			if(dt_cor[sample]==0)dt_cor[sample]=0.938;
-			if(dt_cor[sample]/count[sample]!=0)dt[sample]=dt_cor[sample]/count[sample];
-			fprintf(w_fp, "%d %f\n", sample, dt[sample]);
-		}
-		gtest->Draw();
-		c->SaveAs("GTCcount.png");
+		tree->Write("", TObject::kOverwrite);
+		fout->Close();
 
     return 0;
-}  
-
-double fitser(double *x, double *par){
-	return TMath::Abs(graph->Eval(x[0])-fth->EvalPar(x,par));
-}
-
-double intersection(int start, int end){
-	TF1 *fits=new TF1("fits",fitser,start,end,0);
-	double xits=fits->GetMinimumX();
-	delete fits;
-	return xits;
-}
+}    
