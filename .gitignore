@@ -3,3 +3,11 @@ anadata/*
 result/*
 result.txt
 *.o
+CrossT
+DAQ
+Linearity
+Noise
+SNR
+TCal
+TRes
+eros_d2r
