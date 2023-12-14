@@ -20,27 +20,27 @@
 #include <string>
 
 //Set Global Parameters
-Float_t period=62.5;//16MHz sine wave
-Float_t pre_dt=0.938;//nanosecond
+Double_t period=62.5;//16MHz sine wave
+Double_t pre_dt=0.938;//nanosecond
 Int_t events=0;
 Int_t stopcapacitor[2]={0};
-Float_t wf[18][1024]={0};
-Float_t dt[2][1024]={0};
-Float_t dt_fall[2][1024]={0};//Local TC falling edge
-Float_t dt_rise[2][1024]={0};//Local TC rising edge
+Double_t wf[18][1024]={0};
+Double_t dt[2][1024]={0};
+Double_t dt_fall[2][1024]={0};//Local TC falling edge
+Double_t dt_rise[2][1024]={0};//Local TC rising edge
 Int_t count_fall[2][1024]={0};//Local TC falling count
 Int_t count_rise[2][1024]={0};//Local TC rising count
-Float_t dt_cnt[2][1024]={0};//Local TC count
+Double_t dt_cnt[2][1024]={0};//Local TC count
 Int_t checked_local_capa[2][16][1024]={0};//check every capacitor for only 10 times in fall/rise edge, respectively
-Float_t factor_pdt=0;//Global TC factor for every capa
-Float_t factor_cdt[2][1024]={0};//Global TC capa count
+Double_t factor_pdt=0;//Global TC factor for every capa
+Double_t factor_cdt[2][1024]={0};//Global TC capa count
 Int_t checked_global_capa[16][1024]={0};//check every capacitor for only once in global TC
-Float_t wftime[2][1024]={0};
+Double_t wftime[2][1024]={0};
 TF1 *flocal=NULL;
 TGraph *gtpl[2];//waveform template
 TGraph *gspike=new TGraph();
-float ptpl[1024]={0};
-float ttpl[1024]={0};
+double ptpl[1024]={0};
+double ttpl[1024]={0};
 int pcnt[1024]={0};
 //auto gwf=new TGraph();
 
@@ -53,28 +53,28 @@ const static option options[] = {
 //fitting func for Local TC
 using FitFunction=double (*)(double*, double*);
 double my_func1(double *x, double *par){
-	float func=par[0]*(par[2]+gtpl[0]->Eval(x[0]-par[1]));
+	double func=par[0]*(par[2]+gtpl[0]->Eval(x[0]-par[1]));
 	return func;
 }
 double my_func2(double *x, double *par){
-	float func=par[0]*(par[2]+gtpl[1]->Eval(x[0]-par[1]));
+	double func=par[0]*(par[2]+gtpl[1]->Eval(x[0]-par[1]));
 	return func;
 }
 
 
 //================================================================
 //Check intersection point
-bool intersection(int ch, int sample, float thr=0, int gradient=-1){
+bool intersection(int ch, int sample, double thr=0, int gradient=-1){
 	if(gradient==-1 && wf[ch][sample]<=thr && wf[ch][sample-1]>thr && wf[ch][sample+1]<thr)return true;
 	if(gradient==1 && wf[ch][sample]>=thr && wf[ch][sample-1]<thr && wf[ch][sample+1]>thr)return true;
 	else return false;
 }
-//float fitser(float *x, float *par){
+//double fitser(double *x, double *par){
 //	return TMath::Abs(flocal->Eval(x[0])-thr);
 //}
-//float intersection(int start, int end){
+//double intersection(int start, int end){
 //	TF1 *fits=new TF1("fits",fitser,start,end,0);
-//	float xits=fits->GetMinimumX();
+//	double xits=fits->GetMinimumX();
 //	delete fits;
 //	return xits;
 //}
@@ -147,7 +147,7 @@ void LocalCalibration(int chips=0, int cidx=0){
 			if(checkpoint[0][point]==0 || checkpoint[1][point]==0)continue;
 			//check smoothness (ignore waveform with spikes)
 			bool spike=false;
-			float spikes=0;
+			double spikes=0;
 			for(int k=checkpoint[0][point];k<checkpoint[1][point];k++){
 				if(wf[ch][k]<wf[ch][k+1]){
 					spikes=wf[ch][k+1]-wf[ch][k];
@@ -161,11 +161,11 @@ void LocalCalibration(int chips=0, int cidx=0){
 				continue;
 			}
 			//Start Calibration
-			float du=wf[ch][checkpoint[1][point]]-wf[ch][checkpoint[0][point]];
-			float dt_local=wftime[chips][checkpoint[1][point]]-wftime[chips][checkpoint[0][point]];
+			double du=wf[ch][checkpoint[1][point]]-wf[ch][checkpoint[0][point]];
+			double dt_local=wftime[chips][checkpoint[1][point]]-wftime[chips][checkpoint[0][point]];
 			for(int k=checkpoint[0][point];k<checkpoint[1][point];k++){
-				float dv=wf[ch][k+1]-wf[ch][k];
-				float cor=dt_local*dv/du;
+				double dv=wf[ch][k+1]-wf[ch][k];
+				double cor=dt_local*dv/du;
 				dt_fall[chips][(k+cidx)%1024]+=cor;
 				count_fall[chips][(k+cidx)%1024]++;
 			}
@@ -182,11 +182,11 @@ void LocalCalibration(int chips=0, int cidx=0){
 			}
 			if(spike)continue;
 			//Start Calibration
-			float du=wf[ch][checkpoint[3][point]]-wf[ch][checkpoint[2][point]];
-			float dt_local=wftime[chips][checkpoint[3][point]]-wftime[chips][checkpoint[2][point]];
+			double du=wf[ch][checkpoint[3][point]]-wf[ch][checkpoint[2][point]];
+			double dt_local=wftime[chips][checkpoint[3][point]]-wftime[chips][checkpoint[2][point]];
 			for(int k=checkpoint[2][point];k<checkpoint[3][point];k++){
-				float dv=wf[ch][k+1]-wf[ch][k];
-				float cor=dt_local*dv/du;
+				double dv=wf[ch][k+1]-wf[ch][k];
+				double cor=dt_local*dv/du;
 				dt_rise[chips][(k+cidx)%1024]+=cor;
 				count_rise[chips][(k+cidx)%1024]++;
 			}
@@ -220,13 +220,13 @@ void GlobalCalibration(int chips=0, int cidx=0){
 		for(int i=0;i<3;i++){
 			for(int point=0;point<ncp[i]-1;point++){
 				if(checked_global_capa[ch][(checkpoint[i][point]+cidx)%1024]>1)continue;
-				float dt_global=wftime[chips][checkpoint[i][point+1]-1]-wftime[chips][checkpoint[i][point]];
-				float dtk=wftime[chips][checkpoint[i][point]]-wftime[chips][checkpoint[i][point]-1];
-				float dtq=wftime[chips][checkpoint[i][point+1]-1]-wftime[chips][checkpoint[i][point+1]-2];
-				float uk=wf[ch][checkpoint[i][point]];
-				float duk=wf[ch][checkpoint[i][point]]-wf[ch][checkpoint[i][point]-1];
-				float uq=wf[ch][checkpoint[i][point+1]-1];
-				float duq=wf[ch][checkpoint[i][point+1]-1]-wf[ch][checkpoint[i][point+1]-2];
+				double dt_global=wftime[chips][checkpoint[i][point+1]-1]-wftime[chips][checkpoint[i][point]];
+				double dtk=wftime[chips][checkpoint[i][point]]-wftime[chips][checkpoint[i][point]-1];
+				double dtq=wftime[chips][checkpoint[i][point+1]-1]-wftime[chips][checkpoint[i][point+1]-2];
+				double uk=wf[ch][checkpoint[i][point]];
+				double duk=wf[ch][checkpoint[i][point]]-wf[ch][checkpoint[i][point]-1];
+				double uq=wf[ch][checkpoint[i][point+1]-1];
+				double duq=wf[ch][checkpoint[i][point+1]-1]-wf[ch][checkpoint[i][point+1]-2];
 				factor_pdt=period/(dt_global+(dtk*uk/duk)-(dtq*uq/duq));
 				if(factor_pdt>1.1 || factor_pdt<0.9)continue;
 				for(int idx=checkpoint[i][point];idx<checkpoint[i][point+1]-2;idx++){
@@ -249,7 +249,7 @@ Int_t main(Int_t argc, Char_t* argv[]){
 	int ii, index;
 	//file name input
 	std::string fname;
-	while( (ii = getopt_long(argc, argv, "f:t:", options, &index)) !=-1 ){
+	while( (ii = getopt_long(argc, argv, "f:", options, &index)) !=-1 ){
 		switch(ii){
 			case 'f':
 				fname = optarg;
@@ -365,7 +365,7 @@ Int_t main(Int_t argc, Char_t* argv[]){
 	TCanvas *cglobal=new TCanvas("cglobal","cglobal",1000,800);
 	cglobal->Divide(1,2);
 	TGraph *gglobal_cnt[2];
-	float global_count[2][1024]={0};
+	double global_count[2][1024]={0};
 	for(int chips=0;chips<2;chips++){
 		cglobal->cd(chips+1);
 		gglobal_cnt[chips]=new TGraph();

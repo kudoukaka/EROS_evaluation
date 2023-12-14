@@ -18,12 +18,12 @@
 #include <string>
 
 int stopcapacitor[2]={0};
-float period=62.5;
-float thr=0;//threshold for intersection
-float t[2][12]={0};
-float dt[2][1024]={0};
-float wf[18][1024]={0};
-float wftime[2][1024]={0};
+double period=62.5;
+double thr=0;//threshold for intersection
+double t[2][12]={0};
+double dt[2][1024]={0};
+double wf[18][1024]={0};
+double wftime[2][1024]={0};
 TH1F *hist[2][11];
 char hist_name[2][11];
 auto gwf=new TGraph();
@@ -37,7 +37,7 @@ const static option options[] = {
 
 //================================================================
 //Check intersection point
-bool crossing(int ch, int sample, float cross=0, int gradient=-1){
+bool crossing(int ch, int sample, double cross=0, int gradient=-1){
 	if(gradient==-1 && wf[ch][sample]<=cross && wf[ch][sample-1]>cross && wf[ch][sample+1]<cross)return true;
 	if(gradient==1 && wf[ch][sample]>=cross && wf[ch][sample-1]<cross && wf[ch][sample+1]>cross)return true;
 	else return false;
@@ -45,9 +45,9 @@ bool crossing(int ch, int sample, float cross=0, int gradient=-1){
 double fitser(double *x, double *par){
 	return TMath::Abs(gwf->Eval(x[0])-thr);
 }
-float intersection(float start, float end){
+double intersection(double start, double end){
 	TF1 *fits=new TF1("fits",fitser,start,end,0);
-	float xits=fits->GetMinimumX();
+	double xits=fits->GetMinimumX();
 	delete fits;
 	return xits;
 }
@@ -86,7 +86,7 @@ void TimeResolution(int chips=0, int cidx=0){
 		MakePattern(chips,ch,cidx);
 		int ii[2]={0};
 		for(int sample=1;sample<1000;sample++){
-			if(crossing(ch,sample,0,1)==true && ii[ch%8]<12){
+			if(crossing(ch,sample,thr,1)==true && ii[ch%8]<12){
 				t[ch%8][ii[ch%8]]=intersection(wftime[chips][sample-1],wftime[chips][sample+1]);
 				ii[ch%8]++;
 			}
@@ -123,12 +123,12 @@ int Output(){
 			Canvas[chips]->cd(delay+1);
 			hist[chips][delay]->Draw();
 			hist[chips][delay]->Fit(func_gaus);
-			float mean = (float)func_gaus->GetParameter(1);
-			float sigma = (float)func_gaus->GetParameter(2);
-			float sigmaErr = (float)func_gaus->GetParError(2);
-			float Chisquar = (float)func_gaus->GetChisquare();
-			float RMS = (float)hist[chips][delay]->GetRMS();
-			float RMSErr = (float)hist[chips][delay]->GetRMSError();
+			double mean = (double)func_gaus->GetParameter(1);
+			double sigma = (double)func_gaus->GetParameter(2);
+			double sigmaErr = (double)func_gaus->GetParError(2);
+			double Chisquar = (double)func_gaus->GetChisquare();
+			double RMS = (double)hist[chips][delay]->GetRMS();
+			double RMSErr = (double)hist[chips][delay]->GetRMSError();
 			fprintf(w_fp, "%f %f %f %f %f %f\n", mean, sigma, sigmaErr, Chisquar, RMS, RMSErr);
 		}
 	}
@@ -159,7 +159,7 @@ Int_t main(Int_t argc, Char_t* argv[]){
 
 	//read tc data
 	int row=0;
-	float dummy;
+	double dummy;
 	std::string tc_path[2];
 	tc_path[0]=(tc+"chip1.dat");
 	tc_path[1]=(tc+"chip2.dat");

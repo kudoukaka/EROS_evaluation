@@ -77,8 +77,8 @@ int main(int argc, char* argv[])
 		auto fout=new TFile(("anadata/"+rootname).c_str(),"RECREATE");
 		auto datatree = new TTree("datatree", "waveforms");
 		int sc[2]={0};
-		float wf[18][1024]={0};
-		datatree->Branch("wf",wf,"wf[18][1024]/F");
+		double wf[18][1024]={0};
+		datatree->Branch("wf",wf,"wf[18][1024]/D");
 		datatree->Branch("cidx",sc,"cidx[2]/I");
 
     //read baseline file
