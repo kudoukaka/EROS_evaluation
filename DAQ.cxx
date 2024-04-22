@@ -17,7 +17,7 @@
 #include "DAQ.h"
 
 #define SERVPORT 24
-#define SiTCP_IP "192.168.10.24"
+#define SiTCP_IP "192.168.10.25"
 
 int BoardMaxNum = 10;
 int CH_NUM = 18;
