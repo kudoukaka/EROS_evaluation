@@ -55,9 +55,9 @@ Then you can remove the baseline.root and receive.dat.
 ### Decode:
 
 ```
-./eros_d2r -f <raw_data_file_name> -b <baseline_file_name>
+./eros_d2r -f <raw_data_file_name> -b <baseline_file_name> -t <tc_file_name>
 ```
-IMPORTANT: Please put your raw data file in 'rawdata/' and 'baseline_\<EROSName\>.txt' in 'baselinefile/', the decoded data will be stored in 'anadata/'.
+IMPORTANT: Please put your raw data file in 'rawdata/', 'baseline_\<EROSName\>.txt' in 'baselinefile/', and timing calibration file in 'TCdata/' (Not necessary. If no timing calibration files were found, it will run with default daltaT), the decoded data will be stored in 'anadata/'.
 
 ### Noise Level:
 1. Take data in trigger mode, 1000 events will be enough.
@@ -70,7 +70,7 @@ mv receive.dat rawdata/<name> (e.g. 20231212_A608_noise.dat)
 ```
 3. Decode the data and run noise analysis.
 ```
-./eros_d2r -f <raw_data_file_name> -b <ana_file_name>
+./eros_d2r -f <raw_data_file_name> -b <baseline_file_name> -t <tc_file_name>
 ./Noise -f <data_file_name>
 ```
 The fitting result will be saved in 'noise.txt', and the figure will be saved as 'noise_level.png'.
@@ -97,7 +97,7 @@ The fitting result will be saved in 'snr.txt', and the figure will be saved as '
 ```
 The fitting result will be saved in 'crosstalk.txt', and the figure will be saved as 'crosstalk.png'.
 ### Timing Resolution & Calibration:
-1. Evaluate the timing resolution before calibration.
+1. Take waveform data with appropriate sine wave (Exp. 20MHz 200mV Vpp). Evaluate the timing resolution before calibration.
 ```
 ./TRes -f <data_file_name>
 ```
