@@ -37,6 +37,7 @@ std::string FileDir = "rawdata/";
 const static option options[] = {
     {"FileName",        required_argument, NULL, 'f'},
     {"baseline_fname",  required_argument, NULL, 'b'},
+    {"tc_fname",  required_argument, NULL, 't'},
     {0,0,0,0}
 };
 
@@ -52,7 +53,8 @@ int main(int argc, char* argv[])
     //file name input
     std::string fname;
     std::string baseline_fname;
-    while( (ii = getopt_long(argc, argv, "f:b:", options, &index)) !=-1 ){
+    std::string tc_fname;
+    while( (ii = getopt_long(argc, argv, "f:b:t:", options, &index)) !=-1 ){
         switch(ii){
             case 'f':
                 fname = optarg;
@@ -60,37 +62,42 @@ int main(int argc, char* argv[])
             case 'b':
                 baseline_fname = optarg;
                 break;
+            case 't':
+                tc_fname = optarg;
+                break;
             default :
                 break;
         }
     }
 
-		//OutputRootFile
-		std::string rootname = fname;
-		size_t pos = rootname.find(".dat");
-		if (pos != std::string::npos) {
-			rootname.replace(pos, 4, ".root");
-		} else{
-			rootname = "anadata/result.root";
-		}
-
-		auto fout=new TFile(("anadata/"+rootname).c_str(),"RECREATE");
-		auto datatree = new TTree("datatree", "waveforms");
-		int sc[2]={0};
-		double wf[18][1024]={0};
-		datatree->Branch("wf",wf,"wf[18][1024]/D");
-		datatree->Branch("cidx",sc,"cidx[2]/I");
+    //OutputRootFile
+	std::string rootname = fname;
+    size_t pos = rootname.find(".dat");
+    if (pos != std::string::npos) {
+        rootname.replace(pos, 4, ".root");
+    } else{
+        rootname = "anadata/result.root";
+    }
+    
+    auto fout=new TFile(("anadata/"+rootname).c_str(),"RECREATE");
+    auto datatree = new TTree("datatree", "waveforms");
+    int sc[2]={0};
+    double wf[18][1024]={0};
+    double wftime[2][1024]={0};
+    datatree->Branch("wf",wf,"wf[18][1024]/D");
+    datatree->Branch("cidx",sc,"cidx[2]/I");
+    datatree->Branch("wftime",wftime,"wftime[2][1024]/D");
 
     //read baseline file
-		std::string baselinefilepath_string = ("/home/david/Documents/COMET/ECAL/EROS_DAQ/DAQ/baselinefile/" + baseline_fname);
-		const char* baselinefilepath = baselinefilepath_string.c_str();
+    std::string baselinefilepath_string = ("./baselinefile/" + baseline_fname);
+    const char* baselinefilepath = baselinefilepath_string.c_str();
     FILE *b_fp;
     b_fp = fopen(baselinefilepath, "r");
-		std::cerr<<baselinefilepath;
-		if(b_fp == NULL){
-        printf("baselinefile read err\n");
+    std::cerr<<baselinefilepath;
+    if(b_fp == NULL){
+        printf(" baselinefile read err\n");
         return -1;
-    }    
+    }
 
     float pedestal[StopCapacitor_NUM][BoardNum][CH_NUM][SAMLE_NUM];
     for(int stopcapacitor = 0; stopcapacitor < StopCapacitor_NUM; stopcapacitor++){
@@ -103,18 +110,53 @@ int main(int argc, char* argv[])
         }
     }
 
+    //read timing calibration file
+    std::string tc_chip1_string = ("./TCdata/" + tc_fname + "/chip1.dat");
+    std::string tc_chip2_string = ("./TCdata/" + tc_fname + "/chip2.dat");
+    const char* tc_chip1 = tc_chip1_string.c_str();
+    const char* tc_chip2 = tc_chip2_string.c_str();
+    FILE *tc1_fp;
+    FILE *tc2_fp;
+    tc1_fp = fopen(tc_chip1, "r");
+    tc2_fp = fopen(tc_chip2, "r");
+    std::cerr<<"\n"<<tc_chip1<<" "<<tc_chip2;
+    double t_cidx_chip1[1024];
+    double t_cidx_chip2[1024];
+    if(tc1_fp == NULL || tc2_fp == NULL){
+        printf(" Timing Calibration file read err, run as default (1ns)");
+        for(int i=0;i<1024;i++){
+         t_cidx_chip1[i]=0.938;
+         t_cidx_chip2[i]=0.938;
+        }
+    }
+    else {
+        printf(" Timing Calibration file read successful");
+        int re_chip1;
+        int re_chip2;
+        int cid;
+        double tc_value;
+        while((re_chip1 = fscanf(tc1_fp, "%d %lf", &cid, &tc_value)) !=EOF){
+            t_cidx_chip1[cid] = tc_value;
+        }
+        while((re_chip2 = fscanf(tc2_fp, "%d %lf", &cid, &tc_value)) !=EOF){
+            t_cidx_chip2[cid] = tc_value;
+        }
+    }
+
+
+
     int ret;
     int base_ch;
     int base_samplenum;
-    float value;
+    double value;
     int stopcapacitor;
 
-    while( ( ret = fscanf(b_fp, "%d,%d,%d,%f", &stopcapacitor, &base_ch, &base_samplenum, &value ) ) != EOF ){
+    while((ret = fscanf(b_fp, "%d,%d,%d,%lf", &stopcapacitor, &base_ch, &base_samplenum, &value)) != EOF){
       pedestal[stopcapacitor][0][base_ch][base_samplenum] = value;
     }
 
     //read data file
-		std::string filepath_string = (FileDir + fname);
+    std::string filepath_string = (FileDir + fname);
     const char* filepath = filepath_string.c_str();
     printf("%s\n", filepath);
 
@@ -141,7 +183,7 @@ int main(int argc, char* argv[])
     unsigned int EventNumber[2];
     EventNumber[0] = 0;
     EventNumber[1] = 1;
-		int events=0;
+    int events=0;
 
 
 
@@ -157,9 +199,9 @@ int main(int argc, char* argv[])
 
     //Read Start
     for(;;){
-				if((events+1)%1000==0)std::cout<<"Processing events: "<<events+1<<std::endl;
-				events++;
-				
+        if((events+1)%1000==0)std::cout<<"Processing events: "<<events+1<<std::endl;
+        events++;
+		
         //Header read
         readnum = fread(header, 1, HEADERSIZE, fp);
         if(readnum != (unsigned int)HEADERSIZE){
@@ -210,9 +252,9 @@ int main(int argc, char* argv[])
                 if(readnum != (unsigned short)DataLength){
                     break;
                 }
-
-								if(ch==0)sc[0]=StopNumber;
-								if(ch==8)sc[1]=StopNumber;
+                
+                if(ch==0)sc[0]=StopNumber;
+                if(ch==8)sc[1]=StopNumber;
                 for(int sample = 0; sample < 1024; sample++){
                     int capacitor_number = (sample + StopNumber) % 1024;
                     unsigned short *data_f = (unsigned short *)&readdata[sample*2];
@@ -232,7 +274,15 @@ int main(int argc, char* argv[])
                 break;
             }
         }
-				datatree->Fill();
+
+        for(int sample =0; sample<1023; sample++){
+            int chip1_capacitor_number = (sample + sc[0]) % 1024;
+            int chip2_capacitor_number = (sample + sc[1]) % 1024;
+            wftime[0][sample+1] = wftime[0][sample] + t_cidx_chip1[chip1_capacitor_number];
+            wftime[1][sample+1] = wftime[1][sample] + t_cidx_chip2[chip2_capacitor_number];
+        }
+        
+        datatree->Fill();
 
         //read SEM message
         if(sem_message_size != 0){
@@ -250,9 +300,9 @@ int main(int argc, char* argv[])
     }
 
     fclose(fp);
-
-		datatree->Write("", TObject::kOverwrite);
-		fout->Close();
+    
+    datatree->Write("", TObject::kOverwrite);
+    fout->Close();
 
     return 0;
 }    
