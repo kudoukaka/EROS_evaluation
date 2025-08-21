@@ -57,7 +57,7 @@ Then you can remove the baseline.root and receive.dat.
 ```
 ./eros_d2r -f <raw_data_file_name> -b <baseline_file_name>
 ```
-Please put your raw data file in 'rawdata/' and baseline file in 'baselinefile/', the decoded data will be stored in 'anadata/'.
+IMPORTANT: Please put your raw data file in 'rawdata/' and 'baseline_\<EROSName\>.txt' in 'baselinefile/', the decoded data will be stored in 'anadata/'.
 
 ### Noise Level:
 1. Take data in trigger mode, 1000 events will be enough.
@@ -70,7 +70,7 @@ mv receive.dat rawdata/<name> (e.g. 20231212_A608_noise.dat)
 ```
 3. Decode the data and run noise analysis.
 ```
-./eros_d2r ...
+./eros_d2r -f <raw_data_file_name> -b <ana_file_name>
 ./Noise -f <data_file_name>
 ```
 The fitting result will be saved in 'noise.txt', and the figure will be saved as 'noise_level.png'.
